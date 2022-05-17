@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "app.h"
 
-//Variables
+//Global Variables
 WiFiClient client;
 
 
