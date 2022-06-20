@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "app.h"
+#include <SPI.h>
 
 //Global Variables
 WiFiClient client;
@@ -41,9 +42,10 @@ bool connectServer(const IPAddress &serverIP, uint16_t port) {
     return false;
 }
 
-//TODO Research Database send.
-bool checkID(String id) {
-    client.println();
+//TODO Test Database send.
+bool checkID(const String &id) {
+    client.println("GET /check-id/" + id + " HTTP/1.1");
+    return false;
 }
 
 //Check Wi-Fi Connection
@@ -55,7 +57,7 @@ bool checkWiFiConnection() {
     return false;
 }
 
-//TODO Research client.stop(), client.connected() and reconnect mechanics.
+
 bool checkServerConnection() {
     if (client.connected() == 1) {
         return true;
