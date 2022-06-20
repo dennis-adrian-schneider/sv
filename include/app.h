@@ -2,6 +2,8 @@
 
 #ifndef SV_APP_H
 #define SV_APP_H
+#define SDA_PIN 10
+#define RST_PIN 9
 
 #include "credentials.h"
 

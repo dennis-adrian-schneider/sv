@@ -1,13 +1,18 @@
 #include <Arduino.h>
 #include "app.h"
+#include "../lib/rfid-master/MFRC522.h"
 #include <SPI.h>
+
+
 
 //Global Variables
 WiFiClient client;
-
+MFRC522 mfrc522(SDA_PIN,RST_PIN);
 
 void setup() {
     Serial.begin(115200);
+    SPI.begin();
+    mfrc522.PCD_Init();
 //Connect with local Wi-Fi.
     connectWiFi(ssid_wifi, passwd);
 
@@ -18,8 +23,14 @@ void setup() {
 
 void loop() {
     while (checkWiFiConnection() && checkServerConnection()) {
-        //TODO RFID implementation
+        //TODO test RFID implementation
+        String id;
+        for (byte i = 0; i < mfrc522.uid.size; ++i) {
+            id.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
+            id.concat(String(mfrc522.uid.uidByte[i], HEX));
 
+        }
+        client.println("GET /check-id/" + id + " HTTP/1.1");
     }
 
 }
@@ -43,7 +54,7 @@ bool connectServer(const IPAddress &serverIP, uint16_t port) {
 }
 
 //TODO Test Database send.
-bool checkID(const String &id) {
+bool checkID(const String& id) {
     client.println("GET /check-id/" + id + " HTTP/1.1");
     return false;
 }
