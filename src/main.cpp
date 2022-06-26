@@ -9,17 +9,10 @@ WiFiClient client;
 MFRC522 mfrc522(SDA_PIN, RST_PIN);
 
 void setup() {
-    delay(15000);
     Serial.begin(115200);
-    Serial.println("Serial.Begin");
     SPI.begin();
-    Serial.println("SPI.Begin");
     WiFi.begin(ssid_wifi, passwd);
-    Serial.println("Connected to Wifi");
-    ESP.wdtFeed();
     mfrc522.PCD_Init();
-    ESP.wdtFeed();
-    Serial.println("MFRC.Init");
 
 }
 
@@ -36,26 +29,41 @@ void loop() {
         if (!mfrc522.PICC_ReadCardSerial()) {
             return;
         }
-        //Show UID on serial monitor
+
         String content = "";
-        byte letter;
         for (byte i = 0; i < mfrc522.uid.size; i++) {
             content.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : ""));
             content.concat(String(mfrc522.uid.uidByte[i], HEX));
         }
         if (!content.isEmpty()) {
-            if (checkID(content).equals(authLevel)) {
+            int cardAuth = convertAuthLevel(checkID(content));
+
+            if (cardAuth >= authLevel) {
                 Serial.println("AuthSuccessful");
+            } else {
+                Serial.println("Invalid permissions");
             }
+            delay(2500);
         }
     }
 }
 
-//TODO Test Database send.
+int convertAuthLevel(String authLevel) {
+    if (authLevel.equals("HIGH")) {
+        return 3;
+    } else if (authLevel.equals("MEDIUM")) {
+        return 2;
+    } else if (authLevel.equals("LOW")) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
 String checkID(String id) {
-    ESP.wdtFeed();
     HTTPClient httpClient;
-    String msg = "http://202.61.246.240:8080/check-id/";
+    id.trim();
+    String msg = "http://" + authServerIP + ":" + authServerPort + "/check-id/";
     msg.concat(id);
     Serial.println(msg);
     httpClient.begin(client, msg);
@@ -63,9 +71,10 @@ String checkID(String id) {
     if (respC > 0) {
         Serial.print("Response code: ");
         Serial.println(respC);
-        Serial.println(httpClient.getString());
+        String respMsg = httpClient.getString();
+        Serial.println(respMsg);
         httpClient.end();
-        return httpClient.getString();
+        return respMsg;
     } else {
         Serial.print("Error code: ");
         Serial.println(respC);

@@ -7,8 +7,10 @@
 
 #include "credentials.h"
 
-String authLevel = "LOW";
+int authLevel = 2;
 
 String checkID(String id);
+
+int convertAuthLevel(String authLevel);
 
 #endif //SV_APP_H
