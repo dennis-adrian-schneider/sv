@@ -2,78 +2,77 @@
 #include "app.h"
 #include "../lib/rfid-master/MFRC522.h"
 #include <SPI.h>
-
-
+#include <ESP8266HTTPClient.h>
 
 //Global Variables
 WiFiClient client;
-MFRC522 mfrc522(SDA_PIN,RST_PIN);
+MFRC522 mfrc522(SDA_PIN, RST_PIN);
 
 void setup() {
+    delay(15000);
     Serial.begin(115200);
+    Serial.println("Serial.Begin");
     SPI.begin();
+    Serial.println("SPI.Begin");
+    WiFi.begin(ssid_wifi, passwd);
+    Serial.println("Connected to Wifi");
+    ESP.wdtFeed();
     mfrc522.PCD_Init();
-//Connect with local Wi-Fi.
-    connectWiFi(ssid_wifi, passwd);
-
-//Connect with Database-Server.
-    connectServer(dbServerIP, dbPort);
+    ESP.wdtFeed();
+    Serial.println("MFRC.Init");
 
 }
 
 void loop() {
-    while (checkWiFiConnection() && checkServerConnection()) {
-        //TODO test RFID implementation
-        String id;
-        for (byte i = 0; i < mfrc522.uid.size; ++i) {
-            id.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
-            id.concat(String(mfrc522.uid.uidByte[i], HEX));
-
-        }
-        client.println("GET /check-id/" + id + " HTTP/1.1");
-    }
-
-}
-
-bool connectWiFi(char ssid[], char pass[]) {
-    WiFi.begin(ssid, pass);
+    ESP.wdtFeed();
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("Connected successfully to " + WiFi.SSID());
-        return true;
-    }
-    return false;
-}
+        ESP.wdtFeed();
 
-bool connectServer(const IPAddress &serverIP, uint16_t port) {
-    if (client.connect(serverIP, port)) {
-        Serial.println(
-                "Connected successfully to {}" + client.remoteIP().toString() + " at Port " + client.remotePort());
-        return true;
+        // Look for new cards
+        if (!mfrc522.PICC_IsNewCardPresent()) {
+            return;
+        }
+        // Select one of the cards
+        if (!mfrc522.PICC_ReadCardSerial()) {
+            return;
+        }
+        //Show UID on serial monitor
+        String content = "";
+        byte letter;
+        for (byte i = 0; i < mfrc522.uid.size; i++) {
+            content.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : ""));
+            content.concat(String(mfrc522.uid.uidByte[i], HEX));
+        }
+        if (!content.isEmpty()) {
+            if (checkID(content).equals(authLevel)) {
+                Serial.println("AuthSuccessful");
+            }
+        }
     }
-    return false;
 }
 
 //TODO Test Database send.
-bool checkID(const String& id) {
-    client.println("GET /check-id/" + id + " HTTP/1.1");
-    return false;
-}
-
-//Check Wi-Fi Connection
-bool checkWiFiConnection() {
-    if (WiFi.status() == WL_CONNECTED) {
-        return true;
+String checkID(String id) {
+    ESP.wdtFeed();
+    HTTPClient httpClient;
+    String msg = "http://202.61.246.240:8080/check-id/";
+    msg.concat(id);
+    Serial.println(msg);
+    httpClient.begin(client, msg);
+    int respC = httpClient.GET();
+    if (respC > 0) {
+        Serial.print("Response code: ");
+        Serial.println(respC);
+        Serial.println(httpClient.getString());
+        httpClient.end();
+        return httpClient.getString();
+    } else {
+        Serial.print("Error code: ");
+        Serial.println(respC);
+        httpClient.end();
+        return "HTTP ERROR";
     }
-    Serial.println("WiFi timeout");
-    return false;
+
 }
 
 
-bool checkServerConnection() {
-    if (client.connected() == 1) {
-        return true;
-    }
-    Serial.println("Database-Connection failed");
-    client.stop();
-    return false;
-}
